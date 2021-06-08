@@ -1,8 +1,8 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
-[RequireComponent(typeof(MeshFilter), typeof(MeshRenderer))]
 public class PlanetMesh : MonoBehaviour
 {
     [Range(0, 16)]
@@ -11,33 +11,23 @@ public class PlanetMesh : MonoBehaviour
     [Min(0.5f)]
     public float radius = 1f;
 
+    [Range(20, 100)]
+    public int cellsPerChunk = 20;
+
+    public Material cellMaterial;
+
     public ColorSettings colorSettings;
     public ElevationSettings elevationSettings;
     public CellGeometrySettings cellGeometrySettings;
 
-    private int mouseOverCell = -1;
-    private int selectedCell = -1;
+    public int mouseOverCell = -1;
+    public int selectedCell = -1;
 
     private PolyCell[] _cells;
 
+    public PlanetChunkMesh[] _chunks;
+
     private Dictionary<int, HexsphereGenerator> _generatorCache;
-
-    private Mesh _mesh;
-    private MeshCollider _collider;
-    private List<Vector3> _vertices;
-    private List<int> _triangles;
-    private List<Color> _colors;
-    private List<Vector3> _debugPoints;
-
-    void OnDrawGizmosSelected()
-    {
-        if (_debugPoints == null) {return;}
-        Gizmos.color = Color.yellow;
-        for (int i = 0; i < _debugPoints.Count; i++)
-        {
-            Gizmos.DrawSphere(_debugPoints[i], 0.1f);
-        }
-    }
 
     void Start()
     {
@@ -51,7 +41,7 @@ public class PlanetMesh : MonoBehaviour
         {
             selectedCell = -1;
         }
-        var mousePos = GetMousePositionOnMesh();
+        var mousePos = _chunks[0].GetMousePositionOnMesh();
         if (mousePos != Vector3.zero)
         {
             var cell = GetCellAtPosition(mousePos);
@@ -66,19 +56,6 @@ public class PlanetMesh : MonoBehaviour
         }
 
         RebuildMesh();
-    }
-
-    private Vector3 GetMousePositionOnMesh()
-    {
-        if (_collider == null) {_collider = GetComponent<MeshCollider>();}
-        Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
-        RaycastHit hit;
-        if (Physics.Raycast(ray, out hit, Mathf.Infinity))
-        {
-            if (hit.collider != _collider) {return Vector3.zero;}
-            return hit.point;
-        }
-        return Vector3.zero;
     }
 
     private PolyCell GetCellAtPosition(Vector3 pos)
@@ -100,63 +77,48 @@ public class PlanetMesh : MonoBehaviour
 
     public void GenerateMesh()
     {
-        Init();
-        
         var generator = GetHexsphere(subdivisions);
         _cells = generator.GetCells();
 
+        var numChunks = Mathf.CeilToInt(_cells.Length / (float)cellsPerChunk);
+
+        if (_chunks == null || _chunks.Length != numChunks) {InitChunks(numChunks);}
+
         RebuildMesh();
-        _collider.sharedMesh = _mesh;
     }
 
-    private void Init()
+    private void InitChunks(int numChunks)
     {
-        if (_mesh == null) {_mesh = new Mesh();}
-        GetComponent<MeshFilter>().mesh = _mesh;
-        _collider = GetComponent<MeshCollider>();
-        if (_collider == null) {_collider = gameObject.AddComponent<MeshCollider>();}
-        _mesh.name = "Planet Mesh";
-        _vertices = new List<Vector3>();
-        _triangles = new List<int>();
-        _colors = new List<Color>();
-        _debugPoints = new List<Vector3>();
+        if (_chunks != null)
+        {
+            foreach (var chunk in _chunks)
+            {
+                if (chunk?.gameObject == null) {continue;}
+                GameObject.DestroyImmediate(chunk.gameObject);
+            }
+        }
+
+        _chunks = new PlanetChunkMesh[numChunks];
+        for (int i = 0; i < _chunks.Length; i++)
+        {
+            var chunk = new GameObject("Chunk " + i).AddComponent<PlanetChunkMesh>();
+            _chunks[i] = chunk;
+            chunk.transform.SetParent(transform, false);
+            chunk.Init(this);
+        }
     }
 
     private void RebuildMesh()
     {
-        _mesh.Clear();
-        _vertices.Clear();
-        _triangles.Clear();
-        _colors.Clear();
-        _debugPoints.Clear();
-
-        var colorFilter = new ColorFilter(colorSettings);
-        var elevationFilter = new ElevationFilter(elevationSettings);
-        foreach (var cell in _cells)
+        var cellList = new List<PolyCell>();
+        cellList.AddRange(_cells);
+        var cellsTaken = 0;
+        foreach (var chunk in _chunks)
         {
-            elevationFilter.Evaluate(cell);
-            colorFilter.Evaluate(cell);
-        }
-        MeshifyCells(_cells);
-
-        _mesh.vertices = _vertices.ToArray();
-        _mesh.colors = _colors.ToArray();
-        _mesh.triangles = _triangles.ToArray();
-        _mesh.RecalculateNormals();
-    }
-
-    private void MeshifyCells(PolyCell[] cells)
-    {
-        PolyCellMeshGenerator cellMeshGenerator = new PolyCellMeshGenerator();
-        cellMeshGenerator.cellGeometrySettings = cellGeometrySettings;
-        cellMeshGenerator.radius = radius;
-        cellMeshGenerator.SetGeoLists(_vertices, _triangles, _colors);
-
-        for (int i = 0; i < cells.Length; i++)
-        {
-            cellMeshGenerator.cellIsMouseover = i == mouseOverCell;
-            cellMeshGenerator.cellIsSelected = i == selectedCell;
-            cellMeshGenerator.MeshifyCell(cells[i]);
+            var chunkCells = cellList.Skip(cellsTaken).Take(cellsPerChunk);
+            cellsTaken += cellsPerChunk;
+            chunk.InitCells(chunkCells.ToArray());
+            chunk.RebuildMesh();
         }
     }
 
