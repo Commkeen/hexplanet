@@ -80,14 +80,12 @@ public class PlanetMesh : MonoBehaviour
         var generator = GetHexsphere(subdivisions);
         _cells = generator.GetCells();
 
-        var numChunks = Mathf.CeilToInt(_cells.Length / (float)cellsPerChunk);
-
-        if (_chunks == null || _chunks.Length != numChunks) {InitChunks(numChunks);}
+        InitChunks();
 
         RebuildMesh();
     }
 
-    private void InitChunks(int numChunks)
+    private void InitChunks()
     {
         if (_chunks != null)
         {
@@ -97,6 +95,8 @@ public class PlanetMesh : MonoBehaviour
                 GameObject.DestroyImmediate(chunk.gameObject);
             }
         }
+
+        var numChunks = Icosahedron.triangles.Length; // 1 chunk per original ico face
 
         _chunks = new PlanetChunkMesh[numChunks];
         for (int i = 0; i < _chunks.Length; i++)
@@ -110,14 +110,22 @@ public class PlanetMesh : MonoBehaviour
 
     private void RebuildMesh()
     {
-        var cellList = new List<PolyCell>();
-        cellList.AddRange(_cells);
-        var cellsTaken = 0;
-        foreach (var chunk in _chunks)
+        var numChunks = Icosahedron.triangles.Length;
+        var cellLists = new List<PolyCell>[numChunks];
+        for (int i = 0; i < cellLists.Length; i++)
         {
-            var chunkCells = cellList.Skip(cellsTaken).Take(cellsPerChunk);
-            cellsTaken += cellsPerChunk;
-            chunk.InitCells(chunkCells.ToArray());
+            cellLists[i] = new List<PolyCell>();
+        }
+
+        foreach (var cell in _cells)
+        {
+            cellLists[cell.face].Add(cell);
+        }
+
+        for(int i = 0; i < numChunks; i++)
+        {
+            var chunk = _chunks[i];
+            chunk.InitCells(cellLists[i].ToArray());
             chunk.RebuildMesh();
         }
     }

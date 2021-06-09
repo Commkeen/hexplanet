@@ -12,6 +12,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6a5524232fc229346b08cbe7628b9367, type: 3}
   m_Name: Elevation Settings
   m_EditorClassIdentifier: 
-  seed: 0
+  seed: 0.68
   minElevation: 0
   maxElevation: 8

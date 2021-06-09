@@ -13,6 +13,7 @@ public class HexsphereGenerator
     private Vector2Int[] _connections;
     private Vector3Int[] _tris;
     private Dictionary<int,List<int>> _trisByVertex;
+    private Dictionary<int,int> _faceByVertex;
     private Dictionary<Vector3Int, Vector3> _centroidLookup;
 
     public void GenerateHexsphere(int subdivisions, float radius)
@@ -24,6 +25,7 @@ public class HexsphereGenerator
         _connections = icosphereGen.GetConnections();
         _tris = icosphereGen.GetTris();
         _trisByVertex = icosphereGen.GetTrisByVertex();
+        _faceByVertex = icosphereGen.GetFacesByVertex();
 
         _centroidLookup = new Dictionary<Vector3Int, Vector3>();
 
@@ -88,6 +90,7 @@ public class HexsphereGenerator
 
         var cell = new PolyCell();
         cell.index = index;
+        cell.face = _faceByVertex[index];
         cell.center = new Vector3(x,y,z);
         cell.normal = cell.center.normalized;
         cell.corners = edgePoints;

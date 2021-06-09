@@ -5,6 +5,7 @@ public class PolyCell
 {
     // Simple grid info
     public int index;
+    public int face;
     public List<PolyCell> neighbors;
 
     // Simple unit sphere geo info

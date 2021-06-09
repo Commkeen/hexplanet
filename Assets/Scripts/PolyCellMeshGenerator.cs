@@ -116,22 +116,104 @@ public class PolyCellMeshGenerator
         var outerCornerElevated = outerCorner * fwdElevationFactor;
         var bridgePointElevated = bridgePoint * fwdElevationFactor;
 
-        var fwdIsSlope = cell.elevation == fwdNeighbor.elevation + 1;
-        var otherIsSlope = cell.elevation == otherNeighbor.elevation + 1;
+        var fwdIsHigher = cell.elevation < fwdNeighbor.elevation;
+        var otherIsHigher = cell.elevation < otherNeighbor.elevation;
+        var fwdIsLevel = cell.elevation == fwdNeighbor.elevation;
+        var fwdIsTerrace = cell.elevation == fwdNeighbor.elevation + 1;
+        var otherIsTerrace = cell.elevation == otherNeighbor.elevation + 1;
         var fwdIsCliff = cell.elevation > fwdNeighbor.elevation + 1;
         var otherIsCliff = cell.elevation > otherNeighbor.elevation + 1;
+
+        var begin = innerCornerElevated;
+        var endLeft = left ? outerCornerElevated : bridgePointElevated;
+        var endRight = left ? bridgePointElevated : outerCornerElevated;
 
         // If I'm lower than or equal to both neighbors, I do a normal triangle.
         if (cell.elevation <= otherNeighbor.elevation && cell.elevation <= fwdNeighbor.elevation)
         {
-            if (left)
-                AddTriangle(innerCornerElevated*radius, outerCornerElevated*radius, bridgePointElevated*radius);
-            else
-                AddTriangle(innerCornerElevated*radius, bridgePointElevated*radius, outerCornerElevated*radius);
+            AddTriangle(begin*radius, endLeft*radius, endRight*radius);
             AddTriangleColor(color);
+            return;
         }
+
+        // Simple slope triangle for cliffs.
+        if (fwdIsCliff)
+        {
+            AddTriangle(begin*radius, endLeft*radius, endRight*radius);
+            AddTriangleColor(color);
+            return;
+        }
+
+        if (fwdIsLevel && otherIsCliff)
+        {
+            if (left) {endLeft = outerCorner*otherElevationFactor;}
+            if (!left) {endRight = outerCorner*otherElevationFactor;}
+            AddTriangle(begin*radius, endLeft*radius, endRight*radius);
+            AddTriangleColor(color);
+            return;
+        }
+
+        // If forward is a terrace and other isn't a cliff, I always do a simple terrace.
+        if (fwdIsTerrace && !otherIsCliff)
+        {
+            var up = cell.center.normalized;
+            MeshifyCornerInternal(begin, cell, endLeft, up, true, endRight, up, true, color);
+            return;
+        }
+
+        // If forward is higher and other is terrace,
+        // we need to triangle fan from terrace other-side to our forward bridge point.
+        if (fwdIsHigher && otherIsTerrace)
+        {
+            var up = cell.center.normalized;
+            if (!left) {endRight = outerCorner*otherElevationFactor;}
+            if (left) {endLeft = outerCorner*otherElevationFactor;}
+            var terraceLeft = left ? otherIsTerrace : fwdIsTerrace;
+            var terraceRight = left ? fwdIsTerrace : otherIsTerrace;
+            //AddTriangle(begin*radius, endLeft*radius, endRight*radius);
+            //AddTriangleColor(color);
+            MeshifyCornerInternal(begin, cell, endLeft, up, terraceLeft, endRight, up, terraceRight, color);
+            return;
+        }
+
+        // If my side-neighbor is lower than me and my facing neighbor,
+        // this is an inner corner and I'll need to begin triangulation from the bottom.
+        if (!fwdIsHigher && !fwdIsCliff && otherIsTerrace)
+        {
+            begin = outerCorner*otherElevationFactor;
+            endLeft = left ? bridgePointElevated : innerCornerElevated;
+            endRight = left ? innerCornerElevated : bridgePointElevated;
+            var leftUp = left ? bridgePointElevated.normalized : cell.center.normalized;
+            var rightUp = left ? cell.center.normalized : bridgePointElevated.normalized;
+            MeshifyCornerInternal(begin, cell, endLeft, leftUp, true, endRight, rightUp, true, color);
+            return;
+        }
+
+        // If I'm facing a terrace and my side is a cliff, I have two steps.
+        // First I have to do a terrace-fan halfway down my cliff.
+        // Second I have to do a sloping quad the rest of the way.
+        if (otherIsCliff && fwdIsTerrace)
+        {
+            // Our outer corner point needs to be halfway up our neighbor sloped corner...
+            var outerMidpoint = Vector3.Lerp(innerCornerElevated, outerCorner*otherElevationFactor, 0.5f);
+            endLeft = left ? outerMidpoint : bridgePointElevated;
+            endRight = left ? bridgePointElevated : outerMidpoint;
+            var terraceLeft = left ? otherIsTerrace : fwdIsTerrace;
+            var terraceRight = left ? fwdIsTerrace : otherIsTerrace;
+            var up = cell.center.normalized;
+            MeshifyCornerInternal(begin, cell, endLeft, up, terraceLeft, endRight, up, terraceRight, color);
+
+            AddTriangle(endLeft*radius, outerCorner*otherElevationFactor*radius, endRight*radius);
+            AddTriangleColor(color);
+            return;
+        }
+
+        AddTriangle(begin*radius, endLeft*radius, endRight*radius);
+        AddTriangleColor(Color.red);
+
+        /*
         // If this side is terraced, I should be terraced as well.
-        else if (fwdIsSlope)
+        else if (fwdIsTerrace)
         {
             if (left)
                 MeshifyCornerTerrace(innerCornerElevated, cell, outerCornerElevated, bridgePointElevated, fwdNeighbor, color);
@@ -141,7 +223,7 @@ public class PolyCellMeshGenerator
         // If just the adjacent side is terraced, I should terrace, but outerCorner needs to pull from my other neighbor.
         // Additionally, since this corner terrace needs to join with my neighbor's corner terrace,
         // We'll both need to align our 'up' direction for these terraces.
-        else if (otherIsSlope && !fwdIsCliff)
+        else if (otherIsTerrace && !fwdIsCliff)
         {
             MeshifyInnerCornerTerrace(cell, outerCorner*otherElevationFactor, innerCornerElevated, bridgePointElevated, left, color);
         }
@@ -153,6 +235,7 @@ public class PolyCellMeshGenerator
                 AddTriangle(innerCornerElevated*radius, bridgePointElevated*radius, outerCornerElevated*radius);
             AddTriangleColor(color);
         }
+        */
     }
 
     private void MeshifyEdgeTerrace(Vector3 beginLeft, Vector3 beginRight, PolyCell beginCell,
@@ -181,14 +264,14 @@ public class PolyCellMeshGenerator
         AddQuadColor(color);
     }
 
-    private void MeshifyCornerTerrace(Vector3 begin, PolyCell beginCell,
-                                       Vector3 endLeft, Vector3 endRight, PolyCell endCell,
-                                       Color color)
+    private void MeshifyCornerInternal(Vector3 begin, PolyCell beginCell,
+                               Vector3 endLeft, Vector3 leftUp, bool terraceLeft,
+                               Vector3 endRight, Vector3 rightUp, bool terraceRight,
+                               Color color)
     {
-        var up = beginCell.center.normalized;
-        Vector3 v3 = TerraceLerp(begin, endLeft, up, 1);
-        Vector3 v4 = TerraceLerp(begin, endRight, up, 1);
-        
+        Vector3 v3 = terraceLeft ?  TerraceLerp(begin, endLeft,  leftUp, 1) : endLeft;
+        Vector3 v4 = terraceRight ? TerraceLerp(begin, endRight, rightUp, 1) : endRight;
+
         AddTriangle(begin*radius, v3*radius, v4*radius);
         AddTriangleColor(color);
 
@@ -197,49 +280,49 @@ public class PolyCellMeshGenerator
         {
             var v1 = v3;
             var v2 = v4;
-            v3 = TerraceLerp(begin, endLeft, up, i);
-            v4 = TerraceLerp(begin, endRight, up, i);
-            AddQuad(v1*radius, v2*radius, v3*radius, v4*radius);
-            AddQuadColor(color);
+            v3 = terraceLeft ? TerraceLerp(begin, endLeft, leftUp, i) : endLeft;
+            v4 = terraceRight ? TerraceLerp(begin, endRight, rightUp, i) : endRight;
+            if (terraceLeft && terraceRight)
+            {
+                AddQuad(v1*radius, v2*radius, v3*radius, v4*radius);
+                AddQuadColor(color);
+            }
+            else if (terraceLeft)
+            {
+                AddTriangle(v1*radius, v3*radius, endRight*radius);
+                AddTriangleColor(color);
+            }
+            else
+            {
+                AddTriangle(v2*radius, endLeft*radius, v4*radius);
+                AddTriangleColor(color);
+            }
         }
 
         AddQuad(v3*radius, v4*radius, endLeft*radius, endRight*radius);
         AddQuadColor(color);
     }
 
+    private void MeshifyCornerTerrace(Vector3 begin, PolyCell beginCell,
+                                       Vector3 endLeft, Vector3 endRight, PolyCell endCell,
+                                       Color color)
+    {
+        MeshifyCornerInternal(begin, beginCell, endLeft, beginCell.center.normalized, true,
+                                                endRight, beginCell.center.normalized, true, color);
+    }
+
     private void MeshifyInnerCornerTerrace(PolyCell cell, Vector3 begin, Vector3 ownTop, Vector3 sharedTop, bool left, Color color)
     {
-        var endLeft = sharedTop;
-        var endRight = ownTop;
-        var leftUp = sharedTop.normalized;
-        var rightUp = cell.center.normalized;
-        if (!left)
+        if (left)
         {
-            endLeft = ownTop;
-            endRight = sharedTop;
-            leftUp = cell.center.normalized;
-            rightUp = sharedTop.normalized;
+            MeshifyCornerInternal(begin, cell, sharedTop, sharedTop.normalized, true, 
+                                                ownTop, cell.center.normalized, true, color);
         }
-
-        Vector3 v3 = TerraceLerp(begin, endLeft, leftUp, 1);
-        Vector3 v4 = TerraceLerp(begin, endRight, rightUp, 1);
-        
-        AddTriangle(begin*radius, v3*radius, v4*radius);
-        AddTriangleColor(color);
-
-        int terraceSteps = cellGeometrySettings.terracesPerSlope * 2 + 1;
-        for (int i = 2; i < terraceSteps; i++)
+        else
         {
-            var v1 = v3;
-            var v2 = v4;
-            v3 = TerraceLerp(begin, endLeft, leftUp, i);
-            v4 = TerraceLerp(begin, endRight, rightUp, i);
-            AddQuad(v1*radius, v2*radius, v3*radius, v4*radius);
-            AddQuadColor(color);
+            MeshifyCornerInternal(begin, cell, ownTop, cell.center.normalized, true, 
+                                                sharedTop, sharedTop.normalized, true, color);
         }
-
-        AddQuad(v3*radius, v4*radius, endLeft*radius, endRight*radius);
-        AddQuadColor(color);
     }
 
     private Vector3 TerraceLerp(Vector3 a, Vector3 b, Vector3 up, int step)

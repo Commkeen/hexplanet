@@ -12,12 +12,14 @@ public class IcosphereGenerator
     private List<Vector3Int> _tris;
     private Dictionary<Vector2Int, int[]> _edgeCache;
     private Dictionary<int,List<int>> _trisByVertex;
+    private Dictionary<int,int> _faceByVertex;
     private float _radius = 0;
 
     public Vector3[] GetPoints() {return _points.ToArray();}
     public Vector2Int[] GetConnections() {return _connections.ToArray();}
     public Vector3Int[] GetTris() {return _tris.ToArray();}
     public Dictionary<int,List<int>> GetTrisByVertex() {return _trisByVertex;}
+    public Dictionary<int,int> GetFacesByVertex() {return _faceByVertex;}
 
     public int[] GetTrisFlat()
     {
@@ -61,6 +63,7 @@ public class IcosphereGenerator
         }
         _connectionLookup = new HashSet<Vector2Int>();
         _trisByVertex = new Dictionary<int, List<int>>();
+        _faceByVertex = new Dictionary<int, int>();
     }
 
     private void SubdivideGeometry(int subdivisions)
@@ -73,9 +76,23 @@ public class IcosphereGenerator
         for (var i = 0; i < originalTris.Count; i++)
         {
             Profiler.BeginSample("Subdivide Triangle");
-            SubdivideTriangle(originalTris[i], subdivisions);
+            SubdivideTriangle(originalTris[i], subdivisions, i);
             Profiler.EndSample();
         }
+
+        if (subdivisions == 0)
+        {
+            for (var i = 0; i < _points.Count; i++)
+            {
+                _faceByVertex[i] = i;
+            }
+        }
+
+        if (_faceByVertex.Count != _points.Count)
+        {
+            Debug.LogError($"Face index count {_faceByVertex.Count}, point count {_points.Count}");
+        }
+
     }
 
     private void Spherify(float radius)
@@ -87,18 +104,18 @@ public class IcosphereGenerator
         }
     }
 
-    private void SubdivideTriangle(Vector3Int triangle, int subdivisions)
+    private void SubdivideTriangle(Vector3Int triangle, int subdivisions, int faceIndex)
     {
         //if (subdivisions <= 0) {return;}
         
-        var leftEdge  = SubdivideEdge(new Vector2Int(triangle.x, triangle.y), subdivisions);
-        var rightEdge = SubdivideEdge(new Vector2Int(triangle.x, triangle.z), subdivisions);
+        var leftEdge  = SubdivideEdge(new Vector2Int(triangle.x, triangle.y), subdivisions, faceIndex);
+        var rightEdge = SubdivideEdge(new Vector2Int(triangle.x, triangle.z), subdivisions, faceIndex);
         var topLine = new[]{leftEdge[1], rightEdge[1]}; // These two vertices plus triangle.x form the 'top' triangle in the subdivide.
         AddTriangleConnections(triangle.x, leftEdge[1], rightEdge[1]);
         
         for (var i = 1; i <= subdivisions; i++)
         {
-            var bottomLine = SubdivideEdge(new Vector2Int(leftEdge[i+1], rightEdge[i+1]), i);
+            var bottomLine = SubdivideEdge(new Vector2Int(leftEdge[i+1], rightEdge[i+1]), i, faceIndex);
             var rowLength = topLine.Length; // How many 'up-facing' triangles we have (1 for each topline point)
 
             for (var k = 0; k < rowLength; k++)
@@ -111,7 +128,7 @@ public class IcosphereGenerator
         }
     }
 
-    private int[] SubdivideEdge(Vector2Int edge, int subdivisions)
+    private int[] SubdivideEdge(Vector2Int edge, int subdivisions, int faceIndex)
     {
         Profiler.BeginSample("Subdivide Edge");
         if (subdivisions <= 0) {return new[]{edge.x, edge.y};}
@@ -159,6 +176,16 @@ public class IcosphereGenerator
         }
         results[results.Length-1] = edge.y;
         _edgeCache.Add(edge, results);
+
+        // Assign these points to the current face
+        foreach (var result in results)
+        {
+            if (!_faceByVertex.ContainsKey(result))
+            {
+                _faceByVertex[result] = faceIndex;
+            }
+        }
+
         Profiler.EndSample();
         return results;
     }
