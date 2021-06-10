@@ -14,6 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   seed: 28
   center: {x: 0, y: 0, z: 0}
-  roughness: 2
+  roughness: 1.7
   minElevation: 0
   maxElevation: 8
+  waterCoverage: 0.434
