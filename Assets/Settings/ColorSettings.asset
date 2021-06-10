@@ -13,11 +13,11 @@ MonoBehaviour:
   m_Name: ColorSettings
   m_EditorClassIdentifier: 
   water: {r: 0, g: 0.2806819, b: 0.9811321, a: 1}
-  waterHeight: 1
+  waterHeight: 0
   beach: {r: 0.7169812, g: 0.6714389, b: 0.14542542, a: 1}
-  beachHeight: 2
+  beachHeight: 1
   lowland: {r: 0, g: 0.5754717, b: 0, a: 1}
-  lowlandHeight: 4
+  lowlandHeight: 3
   highland: {r: 0, g: 0.3584906, b: 0, a: 1}
-  highlandHeigh: 6
+  highlandHeigh: 5
   mountain: {r: 0.33962262, g: 0.33962262, b: 0.33962262, a: 1}
