@@ -12,6 +12,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d3804402da65acc4cb6c9f287683dfed, type: 3}
   m_Name: Cell Geometry Settings
   m_EditorClassIdentifier: 
-  elevationStep: 0.0324
+  elevationStep: 0.0099
   terracesPerSlope: 2
   innerCellSize: 0.709

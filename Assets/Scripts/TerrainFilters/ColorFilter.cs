@@ -13,12 +13,25 @@ public class ColorFilter
     {
         if (settings == null) {return;}
 
-        var noisePosition = new Vector2(cell.center.x, cell.center.y);
-        noisePosition += new Vector2(settings.noiseOffset, settings.noiseOffset);
-
-        float noiseResult = Mathf.PerlinNoise(noisePosition.x, noisePosition.y);
-        //noiseResult *= Mathf.PerlinNoise(noisePosition.x, cell.center.z);
-        //noiseResult *= Mathf.PerlinNoise(noisePosition.y, cell.center.z);
-        cell.color = settings.colors.Evaluate(noiseResult);
+        if (cell.elevation <= settings.waterHeight)
+        {
+            cell.color = settings.water;
+        }
+        else if (cell.elevation <= settings.beachHeight)
+        {
+            cell.color = settings.beach;
+        }
+        else if (cell.elevation <= settings.lowlandHeight)
+        {
+            cell.color = settings.lowland;
+        }
+        else if (cell.elevation <= settings.highlandHeigh)
+        {
+            cell.color = settings.highland;
+        }
+        else
+        {
+            cell.color = settings.mountain;
+        }
     }
 }

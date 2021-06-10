@@ -4,7 +4,9 @@ using System.Collections.Generic;
 [CreateAssetMenu()]
 public class ElevationSettings : ScriptableObject
 {
-    public float seed = 0;
+    public int seed = 0;
+    public Vector3 center = Vector3.zero;
+    public float roughness = 1;
     public int minElevation = 0;
-    public int maxElevation = 5;
+    public int maxElevation = 8;
 }

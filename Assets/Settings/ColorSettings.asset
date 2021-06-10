@@ -12,33 +12,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 967e7a6d2f863bc4e9b7bc5693c61abd, type: 3}
   m_Name: ColorSettings
   m_EditorClassIdentifier: 
-  colors:
-    serializedVersion: 2
-    key0: {r: 0, g: 0.022976875, b: 1, a: 1}
-    key1: {r: 0.68193215, g: 0.7264151, b: 0, a: 1}
-    key2: {r: 0, g: 0.4528302, b: 0.051033203, a: 0.49803922}
-    key3: {r: 0.38679248, g: 0.17554742, b: 0, a: 0.49803922}
-    key4: {r: 0.4433962, g: 0.39434123, b: 0.35346207, a: 0.49803922}
-    key5: {r: 0.77254903, g: 0.011764706, b: 0.003921569, a: 0.49803922}
-    key6: {r: 0.77254903, g: 0.011764706, b: 0.003921569, a: 0.49803922}
-    key7: {r: 0.77254903, g: 0.011764706, b: 0.003921569, a: 0.49803922}
-    ctime0: 12722
-    ctime1: 17348
-    ctime2: 29684
-    ctime3: 43754
-    ctime4: 65535
-    ctime5: 0
-    ctime6: 0
-    ctime7: 0
-    atime0: 0
-    atime1: 65535
-    atime2: 0
-    atime3: 0
-    atime4: 0
-    atime5: 0
-    atime6: 0
-    atime7: 0
-    m_Mode: 1
-    m_NumColorKeys: 5
-    m_NumAlphaKeys: 2
-  noiseOffset: 0
+  water: {r: 0, g: 0.2806819, b: 0.9811321, a: 1}
+  waterHeight: 1
+  beach: {r: 0.7169812, g: 0.6714389, b: 0.14542542, a: 1}
+  beachHeight: 2
+  lowland: {r: 0, g: 0.5754717, b: 0, a: 1}
+  lowlandHeight: 4
+  highland: {r: 0, g: 0.3584906, b: 0, a: 1}
+  highlandHeigh: 6
+  mountain: {r: 0.33962262, g: 0.33962262, b: 0.33962262, a: 1}

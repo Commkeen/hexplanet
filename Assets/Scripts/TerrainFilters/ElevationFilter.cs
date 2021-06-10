@@ -3,6 +3,7 @@ using UnityEngine;
 public class ElevationFilter
 {
     ElevationSettings settings;
+    Noise noise = new Noise();
 
     public ElevationFilter(ElevationSettings settings)
     {
@@ -13,10 +14,15 @@ public class ElevationFilter
     {
         if (settings == null) {return;}
 
-        var noisePosition = new Vector2(cell.center.x, cell.center.y);
-        noisePosition += new Vector2(settings.seed, settings.seed);
+        if (settings.seed != noise.Seed)
+        {
+            noise = new Noise(settings.seed);
+        }
 
-        float noiseResult = Mathf.PerlinNoise(noisePosition.x, noisePosition.y);
+        var noisePosition = cell.center * settings.roughness;
+        noisePosition += settings.center;
+
+        float noiseResult = noise.Evaluate(noisePosition)*.5f +.5f;
 
         int result = Mathf.FloorToInt(Mathf.Lerp(settings.minElevation, settings.maxElevation, noiseResult));
         result = Mathf.Clamp(result, settings.minElevation, settings.maxElevation);
