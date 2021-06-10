@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Profiling;
 
 public class PolyCellMeshGenerator
 {
@@ -25,10 +26,12 @@ public class PolyCellMeshGenerator
 
     public void MeshifyCell(PolyCell cell)
     {
+        Profiler.BeginSample("Meshify cell");
         for (int i = 0; i < cell.corners.Count; i++)
         {
             MeshifyCellSegment(cell, i);
         }
+        Profiler.EndSample();
     }
 
     private void MeshifyCellSegment(PolyCell cell, int side)

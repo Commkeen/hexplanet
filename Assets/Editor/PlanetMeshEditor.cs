@@ -23,7 +23,7 @@ public class PlanetMeshEditor : Editor
         }
         if (EditorGUI.EndChangeCheck())
         {
-            _target.GenerateMesh();
+            _target.OnInspectorChange();
         }
 
         if (GUILayout.Button("Regenerate Mesh"))

@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using UnityEngine;
 
@@ -8,8 +9,13 @@ public class PlanetMesh : MonoBehaviour
     [Range(0, 30)]
     public int subdivisions = 0;
 
+    private int _currentSubdivs = -1;
+
     [Min(0.5f)]
     public float radius = 1f;
+
+    [Range(10, 1000)]
+    public uint maxRebuildTime = 250;
 
     public Material cellMaterial;
 
@@ -23,6 +29,8 @@ public class PlanetMesh : MonoBehaviour
     private PolyCell[] _cells;
 
     public PlanetChunkMesh[] _chunks;
+
+    private IEnumerator _rebuildMeshCoroutine;
 
     private Dictionary<int, HexsphereGenerator> _generatorCache;
 
@@ -52,33 +60,38 @@ public class PlanetMesh : MonoBehaviour
             }
         }
 
-        RebuildMesh();
+        if (!RebuildDirtyChunks(maxRebuildTime))
+        {
+            UpdateCellFilters();
+        }
     }
 
-    private PolyCell GetCellAtPosition(Vector3 pos)
+    public void OnInspectorChange()
     {
-        PolyCell cell = null;
-        var sqDist = Mathf.Infinity;
-        for (int i = 0; i < _cells.Length; i++)
+        if (subdivisions != _currentSubdivs)
         {
-            var c = _cells[i];
-            var d = (pos - c.center*radius).sqrMagnitude;
-            if (sqDist > d)
-            {
-                cell = c;
-                sqDist = d;
-            }
+            GenerateMesh();
+            return;
         }
-        return cell;
+
+        UpdateCellFilters();
+    }
+
+    public void UpdateCellFilters()
+    {
+        RunCellFilters();
+        RebuildMesh();
     }
 
     public void GenerateMesh()
     {
+        _currentSubdivs = subdivisions;
         var generator = GetHexsphere(subdivisions);
         _cells = generator.GetCells();
 
         InitChunks();
-
+        AssignCellsToChunks();
+        RunCellFilters();
         RebuildMesh();
     }
 
@@ -101,11 +114,22 @@ public class PlanetMesh : MonoBehaviour
             var chunk = new GameObject("Chunk " + i).AddComponent<PlanetChunkMesh>();
             _chunks[i] = chunk;
             chunk.transform.SetParent(transform, false);
-            chunk.Init(this);
+            chunk.Init(this, i);
         }
     }
 
-    private void RebuildMesh()
+    private void RunCellFilters()
+    {
+        var colorFilter = new ColorFilter(colorSettings);
+        var elevationFilter = new ElevationFilter(elevationSettings);
+        foreach (var cell in _cells)
+        {
+            elevationFilter.Evaluate(cell);
+            colorFilter.Evaluate(cell);
+        }
+    }
+
+    private void AssignCellsToChunks()
     {
         var numChunks = Icosahedron.triangles.Length;
         var cellLists = new List<PolyCell>[numChunks];
@@ -123,8 +147,76 @@ public class PlanetMesh : MonoBehaviour
         {
             var chunk = _chunks[i];
             chunk.InitCells(cellLists[i].ToArray());
+        }
+    }
+
+    private void RebuildMesh()
+    {
+        if (Application.isPlaying)
+        {
+            DirtyAllChunks();
+        }
+        else
+        {
+            RebuildAllChunks();
+        }
+    }
+
+    private void RebuildAllChunks()
+    {
+        var numChunks = Icosahedron.triangles.Length;
+        for(int i = 0; i < numChunks; i++)
+        {
+            var chunk = _chunks[i];
             chunk.RebuildMesh();
         }
+    }
+
+    private void DirtyAllChunks()
+    {
+        var numChunks = Icosahedron.triangles.Length;
+        for(int i = 0; i < numChunks; i++)
+        {
+            var chunk = _chunks[i];
+            chunk.dirty = true;
+        }
+    }
+
+    private bool RebuildDirtyChunks(uint maxTime)
+    {
+        var stopwatch = new Stopwatch();
+        var dirtyChunkFound = false;
+        var numChunks = Icosahedron.triangles.Length;
+        stopwatch.Start();
+        for(int i = 0; i < numChunks; i++)
+        {
+            var chunk = _chunks[i];
+            if (chunk.dirty)
+            {
+                dirtyChunkFound = true;
+                chunk.RebuildMesh();
+            }
+            if (stopwatch.ElapsedMilliseconds > maxTime) {break;}
+        }
+        stopwatch.Stop();
+        return dirtyChunkFound;
+    }
+
+    private PolyCell GetCellAtPosition(Vector3 pos)
+    {
+        PolyCell cell = null;
+        var sqDist = Mathf.Infinity;
+        for (int i = 0; i < _cells.Length; i++)
+        {
+            var c = _cells[i];
+            var d = (pos - c.center*radius).sqrMagnitude;
+            if (sqDist > d)
+            {
+                cell = c;
+                sqDist = d;
+            }
+        }
+        return cell;
     }
 
     private HexsphereGenerator GetHexsphere(int subdivisions)

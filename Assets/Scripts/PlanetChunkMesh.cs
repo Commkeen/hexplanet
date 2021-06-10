@@ -1,11 +1,14 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Profiling;
 
 [RequireComponent(typeof(MeshFilter), typeof(MeshRenderer))]
 public class PlanetChunkMesh : MonoBehaviour
 {
     public PlanetMesh planet;
+    public int index;
+    public bool dirty = false;
 
     private PolyCell[] _localCells;
 
@@ -15,9 +18,10 @@ public class PlanetChunkMesh : MonoBehaviour
     private List<int> _triangles;
     private List<Color> _colors;
 
-    public void Init(PlanetMesh planet)
+    public void Init(PlanetMesh planet, int index)
     {
         this.planet = planet;
+        this.index = index;
         if (_mesh == null) {_mesh = new Mesh();}
         GetComponent<MeshFilter>().mesh = _mesh;
         GetComponent<MeshRenderer>().material = planet.cellMaterial;
@@ -53,10 +57,12 @@ public class PlanetChunkMesh : MonoBehaviour
         _mesh.colors = _colors.ToArray();
         _mesh.triangles = _triangles.ToArray();
         _mesh.RecalculateNormals();
+        dirty = false;
     }
 
     private void MeshifyCells(PolyCell[] cells)
     {
+        Profiler.BeginSample("Meshify Cells for chunk");
         PolyCellMeshGenerator cellMeshGenerator = new PolyCellMeshGenerator();
         cellMeshGenerator.cellGeometrySettings = planet.cellGeometrySettings;
         cellMeshGenerator.radius = planet.radius;
@@ -68,6 +74,7 @@ public class PlanetChunkMesh : MonoBehaviour
             cellMeshGenerator.cellIsSelected = cells[i].index == planet.selectedCell;
             cellMeshGenerator.MeshifyCell(cells[i]);
         }
+        Profiler.EndSample();
     }
 
     public Vector3 GetMousePositionOnMesh()
