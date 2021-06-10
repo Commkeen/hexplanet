@@ -176,6 +176,16 @@ public class PolyCellMeshGenerator
             return;
         }
 
+        // we triangle from our inner corner, to fwd's bridge point, to other's outer corner.
+        if (fwdIsHigher && otherIsCliff)
+        {
+            if (left) {endLeft = outerCorner*otherElevationFactor;}
+            if (!left) {endRight = outerCorner*otherElevationFactor;}
+            AddTriangle(begin*radius, endLeft*radius, endRight*radius);
+            AddTriangleColor(color);
+            return;
+        }
+
         // If my side-neighbor is lower than me and my facing neighbor,
         // this is an inner corner and I'll need to begin triangulation from the bottom.
         if (!fwdIsHigher && !fwdIsCliff && otherIsTerrace)

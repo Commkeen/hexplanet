@@ -5,14 +5,11 @@ using UnityEngine;
 
 public class PlanetMesh : MonoBehaviour
 {
-    [Range(0, 16)]
+    [Range(0, 30)]
     public int subdivisions = 0;
 
     [Min(0.5f)]
     public float radius = 1f;
-
-    [Range(20, 100)]
-    public int cellsPerChunk = 20;
 
     public Material cellMaterial;
 
