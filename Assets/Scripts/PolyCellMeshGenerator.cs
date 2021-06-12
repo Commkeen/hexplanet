@@ -13,15 +13,17 @@ public class PolyCellMeshGenerator
     public bool cellIsMouseover = false;
     
 
-    private List<Vector3> _vertices = new List<Vector3>();
-    private List<int> _triangles = new List<int>();
-    private List<Color> _colors = new List<Color>();
+    private List<Vector3> _vertices;
+    private List<int> _triangles;
+    private List<Color> _colors;
+    private Dictionary<Vector3, int> _vertexLookup;
 
-    public void SetGeoLists(List<Vector3> vertices, List<int> triangles, List<Color> colors)
+    public void SetGeoLists(List<Vector3> vertices, List<int> triangles, List<Color> colors, Dictionary<Vector3, int> vertexLookup)
     {
         _vertices = vertices;
         _triangles = triangles;
         _colors = colors;
+        _vertexLookup = vertexLookup;
     }
 
     public void MeshifyCell(PolyCell cell)
@@ -61,8 +63,7 @@ public class PolyCellMeshGenerator
         var innerAElevated = innerA * innerElevationFactor;
         var innerBElevated = innerB * innerElevationFactor;
 
-        AddTriangle(centerElevated*radius, innerAElevated*radius, innerBElevated*radius);
-        AddTriangleColor(color);
+        AddTriangle(centerElevated*radius, innerAElevated*radius, innerBElevated*radius, color);
 
         // Inner cell is done, now let's draw the outer edges
         var bridge = cell.GetBridge(side, cellGeometrySettings.outerCellSize);
@@ -88,8 +89,7 @@ public class PolyCellMeshGenerator
         }
         else
         {
-            AddQuad(innerAElevated*radius, innerBElevated*radius, bridgeAElevated*radius, bridgeBElevated*radius);
-            AddQuadColor(color);
+            AddQuad(innerAElevated*radius, innerBElevated*radius, bridgeAElevated*radius, bridgeBElevated*radius, color);
         }
 
         MeshifyCorner(cell, neighbor, prevNeighbor, side, cornerA, innerA, bridgeA, true, color);
@@ -134,16 +134,14 @@ public class PolyCellMeshGenerator
         // If I'm lower than or equal to both neighbors, I do a normal triangle.
         if (cell.elevation <= otherNeighbor.elevation && cell.elevation <= fwdNeighbor.elevation)
         {
-            AddTriangle(begin*radius, endLeft*radius, endRight*radius);
-            AddTriangleColor(color);
+            AddTriangle(begin*radius, endLeft*radius, endRight*radius, color);
             return;
         }
 
         // Simple slope triangle for cliffs.
         if (fwdIsCliff)
         {
-            AddTriangle(begin*radius, endLeft*radius, endRight*radius);
-            AddTriangleColor(color);
+            AddTriangle(begin*radius, endLeft*radius, endRight*radius, color);
             return;
         }
 
@@ -151,8 +149,7 @@ public class PolyCellMeshGenerator
         {
             if (left) {endLeft = outerCorner*otherElevationFactor;}
             if (!left) {endRight = outerCorner*otherElevationFactor;}
-            AddTriangle(begin*radius, endLeft*radius, endRight*radius);
-            AddTriangleColor(color);
+            AddTriangle(begin*radius, endLeft*radius, endRight*radius, color);
             return;
         }
 
@@ -184,8 +181,7 @@ public class PolyCellMeshGenerator
         {
             if (left) {endLeft = outerCorner*otherElevationFactor;}
             if (!left) {endRight = outerCorner*otherElevationFactor;}
-            AddTriangle(begin*radius, endLeft*radius, endRight*radius);
-            AddTriangleColor(color);
+            AddTriangle(begin*radius, endLeft*radius, endRight*radius, color);
             return;
         }
 
@@ -216,39 +212,10 @@ public class PolyCellMeshGenerator
             var up = cell.center.normalized;
             MeshifyCornerInternal(begin, cell, endLeft, up, terraceLeft, endRight, up, terraceRight, color);
 
-            AddTriangle(endLeft*radius, outerCorner*otherElevationFactor*radius, endRight*radius);
-            AddTriangleColor(color);
+            AddTriangle(endLeft*radius, outerCorner*otherElevationFactor*radius, endRight*radius, color);
             return;
         }
-
-        AddTriangle(begin*radius, endLeft*radius, endRight*radius);
-        AddTriangleColor(Color.red);
-
-        /*
-        // If this side is terraced, I should be terraced as well.
-        else if (fwdIsTerrace)
-        {
-            if (left)
-                MeshifyCornerTerrace(innerCornerElevated, cell, outerCornerElevated, bridgePointElevated, fwdNeighbor, color);
-            else
-                MeshifyCornerTerrace(innerCornerElevated, cell, bridgePointElevated, outerCornerElevated, fwdNeighbor, color);
-        }
-        // If just the adjacent side is terraced, I should terrace, but outerCorner needs to pull from my other neighbor.
-        // Additionally, since this corner terrace needs to join with my neighbor's corner terrace,
-        // We'll both need to align our 'up' direction for these terraces.
-        else if (otherIsTerrace && !fwdIsCliff)
-        {
-            MeshifyInnerCornerTerrace(cell, outerCorner*otherElevationFactor, innerCornerElevated, bridgePointElevated, left, color);
-        }
-        else
-        {
-            if (left)
-                AddTriangle(innerCornerElevated*radius, outerCornerElevated*radius, bridgePointElevated*radius);
-            else
-                AddTriangle(innerCornerElevated*radius, bridgePointElevated*radius, outerCornerElevated*radius);
-            AddTriangleColor(color);
-        }
-        */
+        AddTriangle(begin*radius, endLeft*radius, endRight*radius, color);
     }
 
     private void MeshifyEdgeTerrace(Vector3 beginLeft, Vector3 beginRight, PolyCell beginCell,
@@ -259,8 +226,7 @@ public class PolyCellMeshGenerator
         Vector3 v3 = TerraceLerp(beginLeft, endLeft, up, 1);
         Vector3 v4 = TerraceLerp(beginRight, endRight, up, 1);
         
-        AddQuad(beginLeft*radius, beginRight*radius, v3*radius, v4*radius);
-        AddQuadColor(color);
+        AddQuad(beginLeft*radius, beginRight*radius, v3*radius, v4*radius, color);
 
         int terraceSteps = cellGeometrySettings.terracesPerSlope * 2 + 1;
         for (int i = 2; i < terraceSteps; i++)
@@ -269,12 +235,10 @@ public class PolyCellMeshGenerator
             var v2 = v4;
             v3 = TerraceLerp(beginLeft, endLeft, up, i);
             v4 = TerraceLerp(beginRight, endRight, up, i);
-            AddQuad(v1*radius, v2*radius, v3*radius, v4*radius);
-            AddQuadColor(color);
+            AddQuad(v1*radius, v2*radius, v3*radius, v4*radius, color);
         }
 
-        AddQuad(v3*radius, v4*radius, endLeft*radius, endRight*radius);
-        AddQuadColor(color);
+        AddQuad(v3*radius, v4*radius, endLeft*radius, endRight*radius, color);
     }
 
     private void MeshifyCornerInternal(Vector3 begin, PolyCell beginCell,
@@ -285,8 +249,7 @@ public class PolyCellMeshGenerator
         Vector3 v3 = terraceLeft ?  TerraceLerp(begin, endLeft,  leftUp, 1) : endLeft;
         Vector3 v4 = terraceRight ? TerraceLerp(begin, endRight, rightUp, 1) : endRight;
 
-        AddTriangle(begin*radius, v3*radius, v4*radius);
-        AddTriangleColor(color);
+        AddTriangle(begin*radius, v3*radius, v4*radius, color);
 
         int terraceSteps = cellGeometrySettings.terracesPerSlope * 2 + 1;
         for (int i = 2; i < terraceSteps; i++)
@@ -297,23 +260,19 @@ public class PolyCellMeshGenerator
             v4 = terraceRight ? TerraceLerp(begin, endRight, rightUp, i) : endRight;
             if (terraceLeft && terraceRight)
             {
-                AddQuad(v1*radius, v2*radius, v3*radius, v4*radius);
-                AddQuadColor(color);
+                AddQuad(v1*radius, v2*radius, v3*radius, v4*radius, color);
             }
             else if (terraceLeft)
             {
-                AddTriangle(v1*radius, v3*radius, endRight*radius);
-                AddTriangleColor(color);
+                AddTriangle(v1*radius, v3*radius, endRight*radius, color);
             }
             else
             {
-                AddTriangle(v2*radius, endLeft*radius, v4*radius);
-                AddTriangleColor(color);
+                AddTriangle(v2*radius, endLeft*radius, v4*radius, color);
             }
         }
 
-        AddQuad(v3*radius, v4*radius, endLeft*radius, endRight*radius);
-        AddQuadColor(color);
+        AddQuad(v3*radius, v4*radius, endLeft*radius, endRight*radius, color);
     }
 
     private void MeshifyCornerTerrace(Vector3 begin, PolyCell beginCell,
@@ -365,15 +324,14 @@ public class PolyCellMeshGenerator
         return final;
     }
 
-    private void AddTriangle(Vector3 v1, Vector3 v2, Vector3 v3)
+    private void AddTriangle(Vector3 v1, Vector3 v2, Vector3 v3, Color color)
     {
-        int vertexIndex = _vertices.Count;
-        _vertices.Add(v1);
-        _vertices.Add(v2);
-        _vertices.Add(v3);
-        _triangles.Add(vertexIndex);
-        _triangles.Add(vertexIndex + 1);
-        _triangles.Add(vertexIndex + 2);
+        var i1 = AddVertex(v1, color);
+        var i2 = AddVertex(v2, color);
+        var i3 = AddVertex(v3, color);
+        _triangles.Add(i1);
+        _triangles.Add(i2);
+        _triangles.Add(i3);
     }
 
     private void AddTriangleColor(Color color)
@@ -383,19 +341,18 @@ public class PolyCellMeshGenerator
         _colors.Add(color);
     }
 
-    private void AddQuad(Vector3 v1, Vector3 v2, Vector3 v3, Vector3 v4)
+    private void AddQuad(Vector3 v1, Vector3 v2, Vector3 v3, Vector3 v4, Color color)
     {
-        int vertexIndex = _vertices.Count;
-        _vertices.Add(v1);
-        _vertices.Add(v2);
-        _vertices.Add(v3);
-        _vertices.Add(v4);
-        _triangles.Add(vertexIndex);
-        _triangles.Add(vertexIndex + 2);
-        _triangles.Add(vertexIndex + 1);
-        _triangles.Add(vertexIndex + 1);
-        _triangles.Add(vertexIndex + 2);
-        _triangles.Add(vertexIndex + 3);
+        var i1 = AddVertex(v1, color);
+        var i2 = AddVertex(v2, color);
+        var i3 = AddVertex(v3, color);
+        var i4 = AddVertex(v4, color);
+        _triangles.Add(i1);
+        _triangles.Add(i3);
+        _triangles.Add(i2);
+        _triangles.Add(i2);
+        _triangles.Add(i3);
+        _triangles.Add(i4);
     }
 
     private void AddQuadColor(Color color)
@@ -404,6 +361,19 @@ public class PolyCellMeshGenerator
         _colors.Add(color);
         _colors.Add(color);
         _colors.Add(color);
+    }
+
+    private int AddVertex(Vector3 vertex, Color color)
+    {
+        if (_vertexLookup.ContainsKey(vertex))
+        {
+            return _vertexLookup[vertex];
+        }
+        var index = _vertices.Count;
+        _vertices.Add(vertex);
+        _colors.Add(color);
+        _vertexLookup[vertex] = index;
+        return index;
     }
 
     

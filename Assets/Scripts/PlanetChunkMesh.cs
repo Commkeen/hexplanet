@@ -17,6 +17,7 @@ public class PlanetChunkMesh : MonoBehaviour
     private List<Vector3> _vertices;
     private List<int> _triangles;
     private List<Color> _colors;
+    private Dictionary<Vector3, int> _vertexLookup;
 
     public void Init(PlanetMesh planet, int index)
     {
@@ -31,6 +32,7 @@ public class PlanetChunkMesh : MonoBehaviour
         _vertices = new List<Vector3>();
         _triangles = new List<int>();
         _colors = new List<Color>();
+        _vertexLookup = new Dictionary<Vector3, int>();
     }
     public void InitCells(PolyCell[] cells)
     {
@@ -43,6 +45,7 @@ public class PlanetChunkMesh : MonoBehaviour
         _vertices.Clear();
         _triangles.Clear();
         _colors.Clear();
+        _vertexLookup.Clear();
 
         var colorFilter = new ColorFilter(planet.colorSettings);
         var elevationFilter = new ElevationFilter(planet.elevationSettings);
@@ -66,7 +69,7 @@ public class PlanetChunkMesh : MonoBehaviour
         PolyCellMeshGenerator cellMeshGenerator = new PolyCellMeshGenerator();
         cellMeshGenerator.cellGeometrySettings = planet.cellGeometrySettings;
         cellMeshGenerator.radius = planet.radius;
-        cellMeshGenerator.SetGeoLists(_vertices, _triangles, _colors);
+        cellMeshGenerator.SetGeoLists(_vertices, _triangles, _colors, _vertexLookup);
 
         for (int i = 0; i < cells.Length; i++)
         {

@@ -6,6 +6,8 @@ using UnityEngine;
 
 public class PlanetMesh : MonoBehaviour
 {
+    [Range(0,100f)]
+    public float rotateSpeed = 0;
     [Range(0, 30)]
     public int subdivisions = 0;
 
@@ -41,6 +43,12 @@ public class PlanetMesh : MonoBehaviour
 
     void Update()
     {
+        var rotEuler = transform.rotation.eulerAngles;
+        var rotY = rotEuler.y;
+        rotY += rotateSpeed * Time.deltaTime;
+        rotEuler = new Vector3(rotEuler.x, rotY, rotEuler.z);
+        transform.rotation = Quaternion.Euler(rotEuler);
+
         mouseOverCell = -1;
         if (Input.GetMouseButtonDown(1))
         {
